@@ -1,23 +1,29 @@
 {
   "name": "nestination",
   "displayName": "Nestination",
-  "description": "",
-  "version": "0.0.1",
+  "description": "Find target in nested content",
+  "version": "0.1.0",
+  "publisher": "unickhow",
   "engines": {
     "vscode": "^1.86.0"
   },
   "categories": [
     "Other"
   ],
+  "author": "unickhow <unick.zhow@gmail.com>",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "nestination.helloWorld",
-        "title": "Hello World"
+        "command": "nestination.goto",
+        "title": "Find key nestination"
       }
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unickhow/nestination"
   },
   "scripts": {
     "vscode:prepublish": "pnpm run compile",

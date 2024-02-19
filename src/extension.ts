@@ -1,26 +1,61 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+function findJsonTarget() {
+  const inputOptions: vscode.InputBoxOptions = {
+    prompt: 'Enter the JSON target path',
+    placeHolder: 'foo.bar.baz',
+  };
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "nestination" is now active!');
+  vscode.window.showInputBox(inputOptions).then((input) => {
+    if (input) {
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const document = editor.document;
+        const pathSegments = input.split('.');
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('nestination.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Nestination!');
-	});
+        for (const segment of pathSegments) {
+          const [property, index] = extractPropertyAndIndex(segment);
+          const regex = new RegExp(`"\\s*${property}\\s*":\\s*`);
+					const match = RegExp(regex).exec(document.getText());
 
-	context.subscriptions.push(disposable);
+          if (match) {
+            const line = document.lineAt(document.positionAt(match.index).line);
+            const column = line.text.indexOf(property);
+            let currentPosition = new vscode.Position(line.lineNumber, column - 1);
+
+            vscode.window.activeTextEditor!.selection = new vscode.Selection(
+              currentPosition,
+              new vscode.Position(line.lineNumber, line.range.end.character)
+            );
+            vscode.window.activeTextEditor?.revealRange(
+              new vscode.Range(currentPosition, new vscode.Position(line.lineNumber, line.range.end.character)),
+              vscode.TextEditorRevealType.InCenter
+            );
+          } else {
+            vscode.window.showInformationMessage(`Property "${property}" not found.`);
+            break;
+          }
+        }
+      }
+    }
+  });
 }
 
-// This method is called when your extension is deactivated
+function extractPropertyAndIndex(segment: string): [string, number | undefined] {
+	const match = RegExp(/(.+?)\[(\d+)\]$/).exec(segment);
+  if (match) {
+    const property = match[1];
+    const index = parseInt(match[2], 10);
+    return [property, index];
+  } else {
+    return [segment, undefined];
+  }
+}
+
+export function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(
+    vscode.commands.registerCommand('nestination.goto', findJsonTarget)
+  );
+}
+
 export function deactivate() {}
