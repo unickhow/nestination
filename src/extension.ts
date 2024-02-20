@@ -7,35 +7,43 @@ function findJsonTarget() {
   };
 
   vscode.window.showInputBox(inputOptions).then((input) => {
-    if (input) {
-      const editor = vscode.window.activeTextEditor;
-      if (editor) {
-        const document = editor.document;
-        const pathSegments = input.split('.');
+    const editor = vscode.window.activeTextEditor;
+    if (!input || !editor) { return; }
 
-        for (const segment of pathSegments) {
-          const [property, index] = extractPropertyAndIndex(segment);
-          const regex = new RegExp(`"\\s*${property}\\s*":\\s*`);
-					const match = RegExp(regex).exec(document.getText());
+    const document = editor.document;
+    const pathSegments = input.split('.');
+    const level = pathSegments.length;
+    let currentLevel = 1;
+    let tempLine = 0;
+    let tempIndex = 0;
+    const totalLines = document.lineCount;
 
-          if (match) {
-            const line = document.lineAt(document.positionAt(match.index).line);
-            const column = line.text.indexOf(property);
-            let currentPosition = new vscode.Position(line.lineNumber, column - 1);
+    for (const segment of pathSegments) {
+      const [property] = extractPropertyAndIndex(segment);
+      const regex = new RegExp(`"\\s*${property}\\s*":\\s*`);
+      const range = new vscode.Range(tempLine, 0, totalLines - 1, document.lineAt(totalLines - 1).text.length);
+      const match = RegExp(regex).exec(document.getText(range));
 
-            vscode.window.activeTextEditor!.selection = new vscode.Selection(
-              currentPosition,
-              new vscode.Position(line.lineNumber, line.range.end.character)
-            );
-            vscode.window.activeTextEditor?.revealRange(
-              new vscode.Range(currentPosition, new vscode.Position(line.lineNumber, line.range.end.character)),
-              vscode.TextEditorRevealType.InCenter
-            );
-          } else {
-            vscode.window.showInformationMessage(`Property "${property}" not found.`);
-            break;
-          }
-        }
+      if (match && currentLevel < level) {
+        const line = document.lineAt(document.positionAt(match.index + tempIndex).line);
+        tempIndex = match.index;
+        tempLine = line.lineNumber;
+        currentLevel++;
+      } else if (currentLevel === level) {
+        const line = document.lineAt(tempLine + 1);
+        let currentPosition = new vscode.Position(line.lineNumber, 0);
+
+        vscode.window.activeTextEditor!.selection = new vscode.Selection(
+          currentPosition,
+          new vscode.Position(line.lineNumber, line.range.end.character)
+        );
+        vscode.window.activeTextEditor?.revealRange(
+          new vscode.Range(currentPosition, new vscode.Position(line.lineNumber, line.range.end.character)),
+          vscode.TextEditorRevealType.InCenter
+        );
+      } else {
+        vscode.window.showInformationMessage(`Property "${property}" not found.`);
+        break;
       }
     }
   });
