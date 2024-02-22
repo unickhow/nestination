@@ -6,6 +6,10 @@ The JSON Key Finder is a Visual Studio Code extension designed to enhance your w
 
 ![CleanShot 2024-02-20 at 12 06 40](https://github.com/unickhow/nestination/assets/22793771/9bf991a6-71d4-47a0-b2aa-1a5c283b2675)
 
+## How to use
+
+`Cmd + Shift + P` (or `Ctrl + Shift + P` for Windows) and execute 'Find key nestination'.
+
 ## TODO
 
 - [ ] support finding array index (e.g., foo.bar[1])
