@@ -2,7 +2,7 @@
   "name": "nestination",
   "displayName": "Nestination",
   "description": "Find target in nested content",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "unickhow",
   "engines": {
     "vscode": "^1.86.0"

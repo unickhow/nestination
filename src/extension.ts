@@ -1,69 +1,60 @@
 import * as vscode from 'vscode';
 
-function findJsonTarget() {
-  const inputOptions: vscode.InputBoxOptions = {
-    prompt: 'Enter the JSON target path',
-    placeHolder: 'foo.bar.baz',
-  };
-
-  vscode.window.showInputBox(inputOptions).then((input) => {
+export function activate(context: vscode.ExtensionContext) {
+  let findKeyCommand = vscode.commands.registerCommand('nestination.goto', () => {
     const editor = vscode.window.activeTextEditor;
-    if (!input || !editor) { return; }
+    if (!editor || editor.document.languageId !== 'json') {
+      return;
+    }
 
-    const document = editor.document;
-    const pathSegments = input.split('.');
-    const level = pathSegments.length;
-    let currentLevel = 1;
-    let tempLine = 0;
-    let tempIndex = 0;
-    const totalLines = document.lineCount;
+    vscode.window.showInputBox({
+      prompt: 'Enter key path.',
+      placeHolder: 'e.g. foo.bar.baz'
+    }).then((keyPath) => {
+      if (keyPath) {
+        const position = findKeyPosition(editor, keyPath);
+        if (position) {
+          const lineRange = editor.document.lineAt(position.line).range;
+          editor.selection = new vscode.Selection(lineRange.start, lineRange.end);
+          editor.revealRange(lineRange);
+        } else {
+          vscode.window.showErrorMessage(`Key "${keyPath}" not found`);
+        }
+      }
+    });
+  });
 
-    for (const segment of pathSegments) {
-      const [property] = extractPropertyAndIndex(segment);
-      const regex = new RegExp(`"\\s*${property}\\s*":\\s*`);
-      const range = new vscode.Range(tempLine, 0, totalLines - 1, document.lineAt(totalLines - 1).text.length);
-      const match = RegExp(regex).exec(document.getText(range));
+  context.subscriptions.push(findKeyCommand);
+}
 
-      if (match && currentLevel < level) {
-        const line = document.lineAt(document.positionAt(match.index + tempIndex).line);
-        tempIndex = match.index;
-        tempLine = line.lineNumber;
-        currentLevel++;
-      } else if (currentLevel === level) {
-        const line = document.lineAt(tempLine + 1);
-        let currentPosition = new vscode.Position(line.lineNumber, 0);
+function findKeyPosition(editor: vscode.TextEditor, path: string): vscode.Position | null {
+  const document = editor.document;
+  const keys = path.split('.'); // e.g. foo.bar.baz => ['foo', 'bar', 'baz']
+  let regexPatterns = keys.map(key => ({ key, regex: new RegExp(`"${key}":`)})); // e.g. [{key: 'foo', regex: /"foo":/}, {key: 'bar', regex: /"bar":/}, {key: 'baz', regex: /"baz":/}]
 
-        vscode.window.activeTextEditor!.selection = new vscode.Selection(
-          currentPosition,
-          new vscode.Position(line.lineNumber, line.range.end.character)
-        );
-        vscode.window.activeTextEditor?.revealRange(
-          new vscode.Range(currentPosition, new vscode.Position(line.lineNumber, line.range.end.character)),
-          vscode.TextEditorRevealType.InCenter
-        );
-      } else {
-        vscode.window.showInformationMessage(`Property "${property}" not found.`);
+  let tempLine = 1;
+  const foundKeys = Array.from({ length: keys.length }, () => false);
+
+  for (let level = 0; level < keys.length; level++) {
+    const lineCount = document.lineCount;
+    let line = tempLine;
+    const regexPattern = regexPatterns[level];
+    while (line < lineCount) {
+      const lineText = document.lineAt(line).text;
+      if (regexPattern.regex.test(lineText)) {
+        tempLine = line + 1; // in case of the same key in nested, e.g. 'foo.foo.bar'
+        foundKeys[level] = true;
         break;
       }
+      line++;
     }
-  });
-}
-
-function extractPropertyAndIndex(segment: string): [string, number | undefined] {
-	const match = RegExp(/(.+?)\[(\d+)\]$/).exec(segment);
-  if (match) {
-    const property = match[1];
-    const index = parseInt(match[2], 10);
-    return [property, index];
-  } else {
-    return [segment, undefined];
   }
-}
 
-export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(
-    vscode.commands.registerCommand('nestination.goto', findJsonTarget)
-  );
+  if (foundKeys.every(Boolean)) {
+    return new vscode.Position(tempLine - 1, 0); // resume the line added in the loop
+  } else {
+    return null;
+  }
 }
 
 export function deactivate() {}
